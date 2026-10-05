@@ -18,7 +18,7 @@ Restart `npx expo start` (add `-c` to clear cache) after editing `.env`.
 | `EXPO_PUBLIC_SUPABASE_PUBLISHABLE_KEY` | the site's `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY` (publishable/anon key only, never the secret key) |
 | `EXPO_PUBLIC_SITE_URL` | deployed site URL (https) for product images and the checkout / booking hand-off |
 
-With no Supabase values the app still shows the bundled catalogue (as the site does), but login is disabled.
+`EXPO_PUBLIC_SITE_URL` must be reachable from the phone: the deployed https URL, or `http://<laptop-LAN-IP>:3000` while running `npm run dev` in the site repo. `localhost` will not work on a phone. With no Supabase values, login is disabled.
 
 ## Supabase setup needed for login
 
@@ -46,10 +46,32 @@ eas env:create --environment preview --name EXPO_PUBLIC_SITE_URL --value "https:
 
 When the build finishes, EAS prints a download URL / QR code for the APK; open it on the phone and install (allow "install unknown apps").
 
+## Features (mirrors the website)
+
+Home (carousel, categories, why us, latest arrivals, how it works, FAQ) · Shop (search, category, price, year, sort) · Vehicle detail with photos and related vehicles · Cart synced to your account · Checkout (card via Paystack, bank transfer, pay on delivery; guest or signed in) · Order status and payment retry · Book a viewing (date/slot, inspection fee options) · Viewing status and fee payment · Account (orders and viewings) · Gallery · About · Contact.
+
+Card payments and viewing-fee payments open Paystack's hosted page in the in-app browser; when you close it the order/booking screen re-verifies the payment with the server.
+
+## API (hng-15-stage-1, `src/app/api`)
+
+All calls go to `EXPO_PUBLIC_SITE_URL/api/...`; signed-in calls send `Authorization: Bearer <Supabase access token>`.
+
+| Endpoint | Used for |
+| --- | --- |
+| `GET /auth/google?redirect_to=` | start Google sign-in |
+| `GET /auth/me` | verify session |
+| `GET /products`, `GET /products/:slug` | shop, detail, gallery, home |
+| `GET/PUT/DELETE /cart` (+ `/cart/:slug`) | cart persisted in Supabase |
+| `POST /checkout`, `GET /orders`, `GET /orders/:ref`, `POST /orders/:ref/pay` | orders |
+| `GET /bookings/availability`, `POST /bookings`, `GET /bookings`, `GET /bookings/:ref`, `POST /bookings/:ref/pay` | viewings |
+| `POST /contact`, `GET /config` | contact form, business details |
+
+The backend changes live in the `hng-15-stage-1` repo (run its updated `supabase/schema.sql` for the `cart_items` table and deploy it).
+
 ## Layout
 
 - `src/lib/supabase.ts`: Supabase client, session persisted in AsyncStorage
 - `src/context/AuthContext.tsx`: Google OAuth (PKCE) + email/password
 - `src/context/CartContext.tsx`: cart, same shape and `eo-cart-v1` key as the site, persisted in AsyncStorage
-- `src/lib/products.ts`: same `products` query as the site, with the bundled catalogue fallback
+- `src/lib/api.ts`: typed client for the Next.js API; `src/lib/products.ts`: product list (API, bundled catalogue only as an offline fallback)
 - `src/theme.ts`: design tokens copied from the site's Tailwind theme

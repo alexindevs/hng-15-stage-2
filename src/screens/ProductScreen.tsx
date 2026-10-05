@@ -1,47 +1,42 @@
 import { Image } from "expo-image";
 import { useRoute } from "@react-navigation/native";
-import * as WebBrowser from "expo-web-browser";
 import { useEffect, useState } from "react";
-import { ActivityIndicator, FlatList, ScrollView, StyleSheet, Text, useWindowDimensions, View } from "react-native";
-import { Button, Eyebrow, Screen } from "../components/ui";
-import { SITE_URL } from "../config";
+import { FlatList, ScrollView, StyleSheet, Text, useWindowDimensions, View } from "react-native";
+import { ProductCard } from "../components/ProductCard";
+import { Body, Button, Eyebrow, H2, Loading, Screen } from "../components/ui";
 import { useCart } from "../context/CartContext";
+import { api, type Config } from "../lib/api";
 import { assetUrl, formatKm, formatNaira } from "../lib/format";
-import { fetchMedia, fetchProducts, type Product } from "../lib/products";
+import type { Product } from "../lib/products";
 import { colors, fonts, radius } from "../theme";
 
-export default function ProductScreen() {
+export default function ProductScreen({ navigation }: { navigation: any }) {
   const { slug } = useRoute().params as { slug: string };
   const { add, lines } = useCart();
   const { width } = useWindowDimensions();
   const [p, setP] = useState<Product | null | undefined>(undefined);
   const [photos, setPhotos] = useState<string[]>([]);
+  const [related, setRelated] = useState<Product[]>([]);
+  const [cfg, setCfg] = useState<Config | null>(null);
   const [added, setAdded] = useState(false);
 
   useEffect(() => {
-    (async () => {
-      const found = (await fetchProducts()).find((x) => x.slug === slug) ?? null;
-      setP(found);
-      if (found) {
-        const main = assetUrl(found.image_url);
-        const extra = (await fetchMedia(found)).map((u) => assetUrl(u)!);
-        const cut = assetUrl(found.cutout_url);
-        setPhotos([main, ...extra, cut].filter((u): u is string => !!u));
-      }
-    })();
+    setP(undefined);
+    api.product(slug)
+      .then((r) => {
+        setP(r.product);
+        setRelated(r.related);
+        setPhotos(r.media.filter((m) => m.kind === "image").map((m) => assetUrl(m.url)!).filter(Boolean));
+      })
+      .catch(() => setP(null));
+    api.config().then(setCfg).catch(() => {});
   }, [slug]);
 
-  if (p === undefined) {
-    return (
-      <Screen style={{ justifyContent: "center" }}>
-        <ActivityIndicator color={colors.gold} />
-      </Screen>
-    );
-  }
+  if (p === undefined) return <Loading />;
   if (p === null) {
     return (
       <Screen style={{ justifyContent: "center", padding: 24 }}>
-        <Text style={s.title}>Vehicle not found</Text>
+        <H2>Vehicle not found</H2>
       </Screen>
     );
   }
@@ -64,7 +59,7 @@ export default function ProductScreen() {
             horizontal
             pagingEnabled
             showsHorizontalScrollIndicator={false}
-            keyExtractor={(u) => u}
+            keyExtractor={(u, i) => `${i}${u}`}
             renderItem={({ item }) => <Image source={item} contentFit="cover" style={{ width, height: (width * 3) / 4, backgroundColor: "#1d1a10" }} />}
           />
         )}
@@ -82,21 +77,34 @@ export default function ProductScreen() {
               </View>
             ))}
           </View>
-          <Text style={s.desc}>{p.description}</Text>
+          <Body>{p.description}</Body>
           <Text style={{ fontFamily: fonts.body, fontSize: 14, color: available ? colors.ok : colors.danger }}>
             {available ? `● ${p.stock === 1 ? "1 available" : `${p.stock} available`}` : "● Sold"}
           </Text>
-          <Button
-            title={!available ? "Sold out" : added ? "Added ✓" : inCart ? `Add to cart (${inCart} in cart)` : "Add to cart"}
-            disabled={!available}
-            onPress={() => {
-              add({ slug: p.slug, name: p.name, price_kobo: p.price_kobo, category: p.category, max: p.stock, image: p.image_url });
-              setAdded(true);
-              setTimeout(() => setAdded(false), 1200);
-            }}
-          />
-          {available && (
-            <Button title="Book a viewing" variant="ghost" onPress={() => WebBrowser.openBrowserAsync(`${SITE_URL}/book?vehicle=${p.slug}`)} />
+          <View style={{ gap: 10 }}>
+            {available && <Button title="Book a viewing" onPress={() => navigation.navigate("Book", { slug: p.slug })} />}
+            <Button
+              variant="ghost"
+              title={!available ? "Sold out" : added ? "Added ✓" : inCart ? `Add to cart (${inCart} in cart)` : "Add to cart"}
+              disabled={!available}
+              onPress={() => {
+                add({ slug: p.slug, name: p.name, price_kobo: p.price_kobo, category: p.category, max: p.stock, image: p.image_url });
+                setAdded(true);
+                setTimeout(() => setAdded(false), 1200);
+              }}
+            />
+            {inCart > 0 && <Button title="Go to cart" variant="ghost" onPress={() => navigation.navigate("Tabs", { screen: "Cart" })} />}
+          </View>
+          {cfg && (
+            <Text style={s.fine}>
+              Viewings carry a {formatNaira(cfg.inspection_fee_kobo)} inspection fee. {cfg.fee_policy} Prefer to buy now? Add it to your cart and check out.
+            </Text>
+          )}
+          {related.length > 0 && (
+            <View style={{ gap: 14, marginTop: 14 }}>
+              <H2>More {p.category.toLowerCase()}</H2>
+              {related.map((r) => <ProductCard key={r.slug} p={r} onPress={() => navigation.push("Product", { slug: r.slug })} />)}
+            </View>
           )}
         </View>
       </ScrollView>
@@ -110,5 +118,5 @@ const s = StyleSheet.create({
   specs: { flexDirection: "row", flexWrap: "wrap", gap: 1, backgroundColor: colors.line, borderRadius: radius.card, overflow: "hidden", borderWidth: 1, borderColor: colors.line },
   spec: { backgroundColor: colors.panel, padding: 14, width: "49.8%", gap: 6 },
   specVal: { fontFamily: fonts.body, fontSize: 15, color: colors.bone },
-  desc: { fontFamily: fonts.body, fontSize: 15, lineHeight: 23, color: colors.mute },
+  fine: { fontFamily: fonts.body, fontSize: 12, color: colors.mute, lineHeight: 18 },
 });

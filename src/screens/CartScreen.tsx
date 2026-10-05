@@ -1,8 +1,6 @@
 import { Image } from "expo-image";
-import * as WebBrowser from "expo-web-browser";
 import { FlatList, Pressable, StyleSheet, Text, View } from "react-native";
 import { Button, Eyebrow, Screen } from "../components/ui";
-import { SITE_URL } from "../config";
 import { useCart, type CartLine } from "../context/CartContext";
 import { assetUrl, formatNaira } from "../lib/format";
 import { colors, fonts, radius } from "../theme";
@@ -45,8 +43,7 @@ export default function CartScreen({ navigation }: { navigation: any }) {
               <Text style={s.totalLabel}>Total</Text>
               <Text style={s.total}>{formatNaira(totalKobo)}</Text>
             </View>
-            <Button title="Checkout" onPress={() => WebBrowser.openBrowserAsync(`${SITE_URL}/checkout`)} style={{ marginTop: 18 }} />
-            <Text style={s.note}>Orders are placed on the website (the backend has no checkout API yet), so your cart will be empty there.</Text>
+            <Button title="Checkout" onPress={() => navigation.navigate("Checkout")} style={{ marginTop: 18 }} />
             <Button title="Keep browsing" variant="ghost" onPress={() => navigation.navigate("Shop")} style={{ marginTop: 12 }} />
           </View>
         }

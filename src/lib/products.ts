@@ -1,23 +1,9 @@
 import catalog from "../data/catalog.json";
-import { supabaseConfigured } from "../config";
-import { supabase } from "./supabase";
+import { api, type Product } from "./api";
 
-// Mirrors hng-15-stage-1/src/lib/products.ts (the site reads the same `products` table).
-export type Product = {
-  id: string;
-  slug: string;
-  name: string;
-  description: string;
-  category: string;
-  price_kobo: number;
-  image_url: string | null;
-  cutout_url: string | null;
-  year: number | null;
-  mileage_km: number | null;
-  condition: string | null;
-  stock: number;
-};
+export type { Product };
 
+// Offline fallback only (same bundled catalogue the site falls back to). Normal path is GET /api/products.
 const fallback: Product[] = catalog.map((p) => ({
   id: p.slug,
   slug: p.slug,
@@ -33,17 +19,14 @@ const fallback: Product[] = catalog.map((p) => ({
   stock: p.stock,
 }));
 
-/** Same query as the site: active products, oldest first. Falls back to the bundled catalogue like the site does. */
-export async function fetchProducts(): Promise<Product[]> {
-  if (!supabaseConfigured) return fallback;
-  const { data, error } = await supabase.from("products").select("*").eq("active", true).order("created_at");
-  if (error || !data?.length) return fallback;
-  return data as Product[];
-}
+let cache: Product[] | null = null;
 
-/** Extra photos for a listing (public `listing_media` table); empty for the bundled catalogue. */
-export async function fetchMedia(p: Product): Promise<string[]> {
-  if (!supabaseConfigured || p.id === p.slug) return [];
-  const { data } = await supabase.from("listing_media").select("kind, url").eq("product_id", p.id).order("sort");
-  return (data ?? []).filter((m) => m.kind !== "video").map((m) => m.url as string);
+export async function fetchProducts(force = false): Promise<Product[]> {
+  if (cache && !force) return cache;
+  try {
+    cache = (await api.products()).items;
+  } catch {
+    if (!cache) cache = fallback;
+  }
+  return cache;
 }
