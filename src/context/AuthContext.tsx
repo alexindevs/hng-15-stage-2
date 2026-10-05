@@ -4,6 +4,7 @@ import * as WebBrowser from "expo-web-browser";
 import type { Session } from "@supabase/supabase-js";
 import { createContext, useCallback, useContext, useEffect, useMemo, useState, type ReactNode } from "react";
 import { supabaseConfigured } from "../config";
+import { googleStartUrl } from "../lib/api";
 import { supabase } from "../lib/supabase";
 
 WebBrowser.maybeCompleteAuthSession();
@@ -55,26 +56,22 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     AsyncStorage.setItem(GUEST_KEY, "1").catch(() => {});
   }, []);
 
-  // Google through Supabase Auth, same provider the website uses. PKCE: Supabase redirects back to the app
-  // with ?code=..., which we exchange for a session (the website does the same in /auth/callback).
+  // Google sign-in goes through the Next.js API: /api/auth/google redirects to Supabase's Google flow and Supabase
+  // returns to the app deep link with #access_token & #refresh_token, which we turn into a persisted session.
   const signInWithGoogle = useCallback<Ctx["signInWithGoogle"]>(async () => {
     if (!supabaseConfigured) return { error: NOT_CONFIGURED };
     const redirectTo = Linking.createURL("auth/callback");
-    const { data, error } = await supabase.auth.signInWithOAuth({
-      provider: "google",
-      options: { redirectTo, skipBrowserRedirect: true },
-    });
-    if (error || !data?.url) return { error: error?.message ?? "Could not start Google sign-in." };
-    const res = await WebBrowser.openAuthSessionAsync(data.url, redirectTo);
+    const res = await WebBrowser.openAuthSessionAsync(googleStartUrl(redirectTo), redirectTo);
     if (res.type !== "success") return {}; // cancelled / dismissed
-    const parsed = Linking.parse(res.url);
-    const code = parsed.queryParams?.code;
-    if (typeof code !== "string") {
-      const desc = parsed.queryParams?.error_description;
-      return { error: typeof desc === "string" ? desc : "Google sign-in did not return a code. Check the Supabase Redirect URLs." };
+    const hashIdx = res.url.indexOf("#");
+    const params = new URLSearchParams(hashIdx >= 0 ? res.url.slice(hashIdx + 1) : res.url.split("?")[1] ?? "");
+    const access_token = params.get("access_token");
+    const refresh_token = params.get("refresh_token");
+    if (!access_token || !refresh_token) {
+      return { error: params.get("error_description") ?? "Google sign-in did not return a session. Check the Supabase Redirect URLs." };
     }
-    const { error: exErr } = await supabase.auth.exchangeCodeForSession(code);
-    return exErr ? { error: exErr.message } : {};
+    const { error } = await supabase.auth.setSession({ access_token, refresh_token });
+    return error ? { error: error.message } : {};
   }, []);
 
   const signInWithPassword = useCallback<Ctx["signInWithPassword"]>(async (email, password) => {

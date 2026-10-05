@@ -23,7 +23,8 @@ With no Supabase values the app still shows the bundled catalogue (as the site d
 ## Supabase setup needed for login
 
 1. **Email login**: Authentication → Providers → Email enabled (optionally turn off "Confirm email" for quick testing).
-2. **Google login**: in Authentication → URL Configuration → Redirect URLs, add `exp://**` (Expo Go) and `egoolisa://**` (APK).
+2. **Google login** (through the site's `/api/auth/google`): the site must be reachable from the phone (`EXPO_PUBLIC_SITE_URL`), Google must be enabled in Supabase as for the website, and Authentication → URL Configuration → Redirect URLs must include `exp://**` (Expo Go) and `egoolisa://**` (APK).
+3. **Cart sync**: run the new `cart_items` section at the bottom of `../supabase/schema.sql` in the SQL editor (idempotent). Signed-in carts are stored via `/api/cart`.
 
 ## Build an installable APK
 
