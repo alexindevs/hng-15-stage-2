@@ -40,9 +40,9 @@ export default function CartScreen({ navigation }: { navigation: any }) {
         ListHeaderComponent={
           <View style={{ marginBottom: 4, gap: 6 }}>
             <Text style={s.h1}>Your cart</Text>
-            <Text style={[s.mute, { textAlign: "center" }, sync === "error" && { color: colors.danger }]}>
-              {sync === "synced" ? "Saved to your account" : sync === "syncing" ? "Syncing…" : sync === "error" ? `Saved on this device. Sync failed: ${syncError}` : "Saved on this device. Sign in to keep it on your account."}
-            </Text>
+            {sync === "error" && (
+              <Text style={[s.mute, { textAlign: "center", color: colors.danger }]}>Saved on this device. Sync failed: {syncError}</Text>
+            )}
           </View>
         }
         renderItem={({ item }) => <Line l={item} onOpen={() => navigation.navigate("Product", { slug: item.slug })} />}
