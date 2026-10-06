@@ -2,6 +2,7 @@ import AsyncStorage from "@react-native-async-storage/async-storage";
 import { AppState } from "react-native";
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { api, type ServerCart } from "../lib/api";
+import { backoffMs, withRetry } from "../lib/retry";
 import { supabase } from "../lib/supabase";
 import { useAuth } from "./AuthContext";
 
@@ -81,27 +82,32 @@ export function CartProvider({ children }: { children: ReactNode }) {
   const userRef = useRef(userId);
   userRef.current = userId;
   const syncing = useRef(false);
+  const failures = useRef(0); // consecutive failed first-sync attempts (drives the backoff)
+  const nextTryAt = useRef(0); // earliest time the first sync may be retried (exponential backoff with jitter)
 
   // Merge the device cart into the account cart (higher quantity wins), save it, adopt the server's version.
   // Retried by refresh() until it succeeds (e.g. after a network or auth error).
   const initialSync = useCallback(async () => {
     const uid = userRef.current;
-    if (!uid || syncing.current) return;
+    if (!uid || syncing.current || Date.now() < nextTryAt.current) return;
     syncing.current = true;
     setSync("syncing");
     try {
-      const server = await api.getCart();
+      const server = await withRetry(() => api.getCart());
       const merged = new Map<string, number>();
       for (const i of server.items) merged.set(i.slug, i.quantity);
       for (const l of linesRef.current) merged.set(l.slug, Math.max(merged.get(l.slug) ?? 0, l.quantity));
-      const result = await api.putCart([...merged].map(([slug, quantity]) => ({ slug, quantity })));
+      const result = await withRetry(() => api.putCart([...merged].map(([slug, quantity]) => ({ slug, quantity }))));
       if (userRef.current !== uid) return; // signed out / switched account meanwhile
+      failures.current = 0;
+      nextTryAt.current = 0;
       setLines(fromServer(result));
       synced.current = true;
       setSync("synced");
       setSyncError("");
     } catch (e) {
       if (userRef.current !== uid) return;
+      nextTryAt.current = Date.now() + backoffMs(failures.current++, 1000, 60_000);
       setSync("error");
       setSyncError(e instanceof Error ? e.message : "Could not sync cart.");
     } finally {
@@ -113,6 +119,8 @@ export function CartProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     if (!ready) return;
     synced.current = false;
+    failures.current = 0;
+    nextTryAt.current = 0;
     if (!userId) {
       setSync("local");
       if (prevUser.current) setLines([]);
@@ -132,7 +140,7 @@ export function CartProvider({ children }: { children: ReactNode }) {
       let result: ServerCart | null = null;
       let failed: string | null = null;
       try {
-        result = await op();
+        result = await withRetry(op); // transient failures retry with exponential backoff + jitter, keeping order
       } catch (e) {
         failed = e instanceof Error ? e.message : "Could not sync cart.";
       }

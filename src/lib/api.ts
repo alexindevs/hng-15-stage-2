@@ -1,4 +1,5 @@
 import { SITE_URL } from "../config";
+import { ApiError } from "./retry";
 import { supabase } from "./supabase";
 
 // Client for the Next.js API (hng-15-stage-1/src/app/api). Auth: Authorization: Bearer <Supabase access token>.
@@ -95,7 +96,7 @@ async function req<T>(path: string, opts: { method?: string; body?: unknown; aut
     const { data } = await supabase.auth.getSession(); // refreshes the token when it is about to expire
     const token = data.session?.access_token;
     if (token) headers.Authorization = `Bearer ${token}`;
-    else if (mode === "required") throw new Error("Not signed in.");
+    else if (mode === "required") throw new ApiError("Not signed in.", 401);
   }
   let res: Response;
   try {
@@ -105,12 +106,12 @@ async function req<T>(path: string, opts: { method?: string; body?: unknown; aut
       body: opts.body === undefined ? undefined : JSON.stringify(opts.body),
     });
   } catch {
-    throw new Error(`Cannot reach the shop server at ${SITE_URL}. Check EXPO_PUBLIC_SITE_URL and your connection.`);
+    throw new ApiError(`Cannot reach the shop server at ${SITE_URL}. Check EXPO_PUBLIC_SITE_URL and your connection.`, 0);
   }
   const json = await res.json().catch(() => null);
   // Action endpoints answer { ok:false, error } with a 4xx; return those to the caller instead of throwing.
   if (json && typeof json === "object" && "ok" in json) return json as T;
-  if (!res.ok) throw new Error((json && json.error) || `Request failed (${res.status})`);
+  if (!res.ok) throw new ApiError((json && json.error) || `Request failed (${res.status})`, res.status);
   return json as T;
 }
 
