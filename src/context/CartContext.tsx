@@ -1,4 +1,5 @@
 import AsyncStorage from "@react-native-async-storage/async-storage";
+import { AppState } from "react-native";
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { api, type ServerCart } from "../lib/api";
 import { useAuth } from "./AuthContext";
@@ -137,6 +138,34 @@ export function CartProvider({ children }: { children: ReactNode }) {
     }, 300);
     return () => clearTimeout(t);
   }, [lines, ready, userId]);
+
+  // Pick up changes made elsewhere (the website) when the app returns to the foreground, and every 20 seconds.
+  useEffect(() => {
+    if (!ready || !userId) return;
+    const refresh = async () => {
+      if (!synced.current) return;
+      const v = version.current;
+      try {
+        const next = fromServer(await api.getCart());
+        if (v !== version.current) return; // edited locally while loading
+        const key = (ls: CartLine[]) => JSON.stringify(ls.map((l) => [l.slug, l.quantity]));
+        if (key(next) !== key(linesRef.current)) {
+          skipPush.current = true;
+          setLines(next);
+        }
+      } catch {
+        // keep the local cart; the next edit or refresh retries
+      }
+    };
+    const timer = setInterval(refresh, 20_000);
+    const sub = AppState.addEventListener("change", (s) => {
+      if (s === "active") refresh();
+    });
+    return () => {
+      clearInterval(timer);
+      sub.remove();
+    };
+  }, [ready, userId]);
 
   const add = useCallback<Ctx["add"]>((l, qty = 1) => {
     setLines((cur) => {
