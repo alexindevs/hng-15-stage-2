@@ -62,13 +62,18 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     if (!supabaseConfigured) return { error: NOT_CONFIGURED };
     const redirectTo = Linking.createURL("auth/callback");
     const res = await WebBrowser.openAuthSessionAsync(googleStartUrl(redirectTo), redirectTo);
-    if (res.type !== "success") return {}; // cancelled / dismissed
+    if (res.type !== "success") {
+      // Usually means Supabase did not accept the redirect and sent the browser to the website instead.
+      return res.type === "cancel" || res.type === "dismiss"
+        ? { error: `Sign-in window closed before returning to the app. If you ended up on the website, add this exact URL to Supabase Redirect URLs: ${redirectTo}` }
+        : {};
+    }
     const hashIdx = res.url.indexOf("#");
     const params = new URLSearchParams(hashIdx >= 0 ? res.url.slice(hashIdx + 1) : res.url.split("?")[1] ?? "");
     const access_token = params.get("access_token");
     const refresh_token = params.get("refresh_token");
     if (!access_token || !refresh_token) {
-      return { error: params.get("error_description") ?? "Google sign-in did not return a session. Check the Supabase Redirect URLs." };
+      return { error: params.get("error_description") ?? `Google sign-in did not return a session. Returned: ${res.url.slice(0, 120)} (sent redirect: ${redirectTo})` };
     }
     const { error } = await supabase.auth.setSession({ access_token, refresh_token });
     return error ? { error: error.message } : {};
