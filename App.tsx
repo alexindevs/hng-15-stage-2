@@ -63,7 +63,7 @@ function Tabs() {
         tabBarIcon: ({ focused, color, size }) => <Ionicons name={ICONS[route.name][focused ? 0 : 1]} size={size} color={color} />,
       })}
     >
-      <Tab.Screen name="Home" component={HomeScreen} options={{ title: "Ego Olisa" }} />
+      <Tab.Screen name="Home" component={HomeScreen} options={{ headerShown: false }} />
       <Tab.Screen name="Shop" component={ShopScreen} options={{ title: "Shop" }} />
       <Tab.Screen name="Cart" component={CartScreen} options={{ tabBarBadge: count > 0 ? count : undefined }} />
       <Tab.Screen name="Account" component={AccountScreen} />

@@ -6,6 +6,7 @@ import { Body, Button, Eyebrow, H2, Screen } from "../components/ui";
 import { assetUrl, formatNaira } from "../lib/format";
 import { api } from "../lib/api";
 import { fetchProducts, type Product } from "../lib/products";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { colors, fonts, radius } from "../theme";
 
 // Copy and structure mirror hng-15-stage-1/src/app/(site)/page.tsx.
@@ -36,6 +37,8 @@ const FAQ = [
 
 export default function HomeScreen({ navigation }: { navigation: any }) {
   const { width } = useWindowDimensions();
+  const insets = useSafeAreaInsets();
+  const tileW = Math.floor((width - 32 - 10) / 2); // two per row: 16px side padding, 10px gap
   const [items, setItems] = useState<Product[]>([]);
   const [fee, setFee] = useState(2_000_000);
   const [open, setOpen] = useState<number | null>(null);
@@ -55,7 +58,7 @@ export default function HomeScreen({ navigation }: { navigation: any }) {
     <Screen>
       <ScrollView>
         {/* HERO: gold wordmark behind a swipeable carousel of background-removed vehicles */}
-        <View style={s.hero}>
+        <View style={[s.hero, { paddingTop: insets.top + 22 }]}>
           <Text style={s.word}>EGO</Text>
           <Text style={[s.word, { marginTop: -18 }]}>OLISA</Text>
           {slides.length > 0 && (
@@ -97,7 +100,7 @@ export default function HomeScreen({ navigation }: { navigation: any }) {
           <H2 style={{ marginTop: 6 }}>Find your ride</H2>
           <View style={s.grid}>
             {CATEGORIES.map((c) => (
-              <Pressable key={c.name} style={s.catTile} onPress={() => go("Shop", { category: c.name })}>
+              <Pressable key={c.name} style={[s.catTile, { width: tileW }]} onPress={() => go("Shop", { category: c.name })}>
                 <Eyebrow>{c.blurb}</Eyebrow>
                 <Image source={assetUrl(c.img)} contentFit="contain" style={s.catImg} />
                 <Text style={s.catName}>{c.name}</Text>
@@ -201,7 +204,7 @@ const s = StyleSheet.create({
   section: { paddingHorizontal: 16, paddingVertical: 36 },
   band: { backgroundColor: colors.coal, borderTopWidth: 1, borderBottomWidth: 1, borderColor: colors.line },
   grid: { flexDirection: "row", flexWrap: "wrap", gap: 10, marginTop: 18 },
-  catTile: { width: "48.5%", aspectRatio: 0.82, backgroundColor: colors.panel, borderRadius: radius.card, borderWidth: 1, borderColor: colors.line, padding: 12, justifyContent: "space-between" },
+  catTile: { aspectRatio: 0.82, backgroundColor: colors.panel, borderRadius: radius.card, borderWidth: 1, borderColor: colors.line, padding: 12, justifyContent: "space-between" },
   catImg: { position: "absolute", left: 8, right: 8, top: "28%", height: "42%" },
   catName: { fontFamily: fonts.display, fontSize: 20, color: colors.bone },
   gold: { fontFamily: fonts.display, color: colors.gold },
