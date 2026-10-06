@@ -87,10 +87,10 @@ export const Loading = () => (
 );
 
 const s = StyleSheet.create({
-  btn: { minHeight: 48, paddingHorizontal: 24, borderRadius: radius.pill, alignItems: "center", justifyContent: "center" },
+  btn: { minHeight: 48, paddingHorizontal: 24, borderRadius: radius.pill, alignItems: "center", justifyContent: "center", alignSelf: "stretch" },
   gold: { backgroundColor: colors.gold },
   ghost: { borderWidth: 1, borderColor: "rgba(244,241,234,0.28)" },
-  btnText: { fontFamily: fonts.semi, fontSize: 15, letterSpacing: 0.3 },
+  btnText: { fontFamily: fonts.semi, fontSize: 15, letterSpacing: 0.3, textAlign: "center" },
   eyebrow: { fontFamily: fonts.body, fontSize: 11.5, letterSpacing: 2.5, color: colors.mute },
   label: { fontFamily: fonts.body, fontSize: 13, color: colors.mute },
   input: { backgroundColor: colors.coal, borderWidth: 1, borderColor: colors.line, borderRadius: radius.input, paddingHorizontal: 15, paddingVertical: 13, color: colors.bone, fontFamily: fonts.body, fontSize: 16 },

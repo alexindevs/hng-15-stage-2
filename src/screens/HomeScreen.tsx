@@ -86,8 +86,8 @@ export default function HomeScreen({ navigation }: { navigation: any }) {
             </View>
           )}
           <View style={s.heroCtas}>
-            <Button title="Browse vehicles" onPress={() => go("Shop")} style={{ flex: 1 }} />
-            <Button title="Book a viewing" variant="ghost" onPress={() => go("Book")} style={{ flex: 1 }} />
+            <Button title="Browse vehicles" onPress={() => go("Shop")} />
+            <Button title="Book a viewing" variant="ghost" onPress={() => go("Book")} />
           </View>
         </View>
 
@@ -197,7 +197,7 @@ const s = StyleSheet.create({
   slidePrice: { fontFamily: fonts.semi, fontSize: 17, color: colors.gold, marginTop: 4 },
   dots: { flexDirection: "row", gap: 6, marginTop: 14 },
   dot: { width: 6, height: 6, borderRadius: 3, backgroundColor: "rgba(244,241,234,0.3)" },
-  heroCtas: { flexDirection: "row", gap: 10, paddingHorizontal: 16, marginTop: 22, width: "100%" },
+  heroCtas: { flexDirection: "column", gap: 12, paddingHorizontal: 16, marginTop: 22, width: "100%" },
   section: { paddingHorizontal: 16, paddingVertical: 36 },
   band: { backgroundColor: colors.coal, borderTopWidth: 1, borderBottomWidth: 1, borderColor: colors.line },
   grid: { flexDirection: "row", flexWrap: "wrap", gap: 10, marginTop: 18 },
