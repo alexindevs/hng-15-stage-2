@@ -8,7 +8,7 @@ import { assetUrl, formatNaira } from "../lib/format";
 import { colors, fonts, radius } from "../theme";
 
 export default function CartScreen({ navigation }: { navigation: any }) {
-  const { lines, totalKobo, ready, sync, syncError, refresh } = useCart();
+  const { lines, totalKobo, ready, sync, refresh } = useCart();
   // Safety net on top of the websocket: re-read the account cart every 5 seconds while this screen is focused.
   useFocusEffect(
     useCallback(() => {
@@ -41,7 +41,7 @@ export default function CartScreen({ navigation }: { navigation: any }) {
           <View style={{ marginBottom: 4, gap: 6 }}>
             <Text style={s.h1}>Your cart</Text>
             {sync === "error" && (
-              <Text style={[s.mute, { textAlign: "center", color: colors.danger }]}>Saved on this device. Sync failed: {syncError}</Text>
+              <Text style={[s.mute, { textAlign: "center", color: colors.danger }]}>Your items are saved on this device, but we couldn't update your account cart. We'll keep trying.</Text>
             )}
           </View>
         }

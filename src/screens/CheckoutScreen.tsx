@@ -5,6 +5,7 @@ import { Banner, Button, Card, Eyebrow, Field, H1, Pill, Screen } from "../compo
 import { useAuth } from "../context/AuthContext";
 import { useCart } from "../context/CartContext";
 import { api } from "../lib/api";
+import { friendlyError } from "../lib/errors";
 import { formatNaira } from "../lib/format";
 import { colors, fonts } from "../theme";
 
@@ -42,7 +43,7 @@ export default function CheckoutScreen({ navigation }: { navigation: any }) {
       if (r.redirectUrl) await WebBrowser.openBrowserAsync(r.redirectUrl); // Paystack hosted checkout
       navigation.replace("Order", { reference: r.reference });
     } catch (e) {
-      setErr(e instanceof Error ? e.message : "Could not place the order.");
+      setErr(friendlyError(e, "We couldn't place your order. Please try again."));
     } finally {
       setBusy(false);
     }

@@ -5,6 +5,7 @@ import type { Session } from "@supabase/supabase-js";
 import { createContext, useCallback, useContext, useEffect, useMemo, useState, type ReactNode } from "react";
 import { supabaseConfigured } from "../config";
 import { googleStartUrl } from "../lib/api";
+import { friendlyAuthMessage } from "../lib/errors";
 import { supabase } from "../lib/supabase";
 
 WebBrowser.maybeCompleteAuthSession();
@@ -22,7 +23,8 @@ type Ctx = {
 };
 const AuthCtx = createContext<Ctx | null>(null);
 const GUEST_KEY = "eo-guest-v1";
-const NOT_CONFIGURED = "Supabase is not configured. Set EXPO_PUBLIC_SUPABASE_URL and EXPO_PUBLIC_SUPABASE_PUBLISHABLE_KEY.";
+const NOT_CONFIGURED = "Sign-in isn't available right now. Please try again later.";
+const GOOGLE_FAILED = "We couldn't complete Google sign-in. Please try again.";
 
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [session, setSession] = useState<Session | null>(null);
@@ -65,7 +67,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     if (res.type !== "success") {
       // Usually means Supabase did not accept the redirect and sent the browser to the website instead.
       return res.type === "cancel" || res.type === "dismiss"
-        ? { error: `Sign-in window closed before returning to the app. If you ended up on the website, add this exact URL to Supabase Redirect URLs: ${redirectTo}` }
+        ? { error: "Sign-in didn't finish. Please try again." }
         : {};
     }
     const hashIdx = res.url.indexOf("#");
@@ -73,22 +75,23 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     const access_token = params.get("access_token");
     const refresh_token = params.get("refresh_token");
     if (!access_token || !refresh_token) {
-      return { error: params.get("error_description") ?? `Google sign-in did not return a session. Returned: ${res.url.slice(0, 120)} (sent redirect: ${redirectTo})` };
+      console.warn("[auth] Google sign-in returned no session", res.url.split("#")[0], "redirect:", redirectTo);
+      return { error: GOOGLE_FAILED };
     }
     const { error } = await supabase.auth.setSession({ access_token, refresh_token });
-    return error ? { error: error.message } : {};
+    return error ? { error: friendlyAuthMessage(error.message, GOOGLE_FAILED) } : {};
   }, []);
 
   const signInWithPassword = useCallback<Ctx["signInWithPassword"]>(async (email, password) => {
     if (!supabaseConfigured) return { error: NOT_CONFIGURED };
     const { error } = await supabase.auth.signInWithPassword({ email: email.trim(), password });
-    return error ? { error: error.message } : {};
+    return error ? { error: friendlyAuthMessage(error.message) } : {};
   }, []);
 
   const signUpWithPassword = useCallback<Ctx["signUpWithPassword"]>(async (email, password) => {
     if (!supabaseConfigured) return { error: NOT_CONFIGURED };
     const { data, error } = await supabase.auth.signUp({ email: email.trim(), password });
-    if (error) return { error: error.message };
+    if (error) return { error: friendlyAuthMessage(error.message, "We couldn't create your account. Please try again.") };
     return data.session ? {} : { notice: "Account created. Check your email to confirm it, then sign in." };
   }, []);
 

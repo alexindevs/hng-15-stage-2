@@ -4,6 +4,7 @@ import { Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 import { Banner, Body, Button, Card, Eyebrow, H1, H2, Screen, StatusPill } from "../components/ui";
 import { useAuth } from "../context/AuthContext";
 import { api, type BookingRow, type OrderRow } from "../lib/api";
+import { friendlyError } from "../lib/errors";
 import { formatDate, formatNaira, formatSlot } from "../lib/format";
 import { colors, fonts } from "../theme";
 
@@ -22,7 +23,7 @@ export default function AccountScreen({ navigation }: { navigation: any }) {
           setBookings(b.items);
           setErr("");
         })
-        .catch((e) => setErr(e.message));
+        .catch((e) => setErr(friendlyError(e, "We couldn't load your orders and viewings. Pull back to this tab to try again.")));
     }, [session]),
   );
 

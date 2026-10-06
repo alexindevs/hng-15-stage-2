@@ -5,6 +5,7 @@ import { KeyboardAvoidingView, Platform, ScrollView, StyleSheet, Text, View } fr
 import { Banner, Body, Button, Eyebrow, Field, H1, Loading, Pill, Screen } from "../components/ui";
 import { useAuth } from "../context/AuthContext";
 import { api, type Availability } from "../lib/api";
+import { friendlyError } from "../lib/errors";
 import { formatNaira } from "../lib/format";
 import { colors, fonts } from "../theme";
 
@@ -28,7 +29,7 @@ export default function BookScreen({ navigation }: { navigation: any }) {
       setAv(a);
       setSlug((cur) => (a.vehicles.some((v) => v.slug === cur) ? cur : a.vehicles[0]?.slug ?? ""));
       if (a.fee_kobo > 0 && a.paystack) setFee("pay_now");
-    }).catch((e) => setErr(e.message));
+    }).catch((e) => setErr(friendlyError(e, "We couldn't load viewing times. Please try again.")));
   }, []);
 
   async function submit() {
@@ -40,7 +41,7 @@ export default function BookScreen({ navigation }: { navigation: any }) {
       if (r.redirectUrl) await WebBrowser.openBrowserAsync(r.redirectUrl);
       navigation.replace("Booking", { reference: r.reference });
     } catch (e) {
-      setErr(e instanceof Error ? e.message : "Could not book.");
+      setErr(friendlyError(e, "We couldn't book that viewing. Please try again."));
     } finally {
       setBusy(false);
     }

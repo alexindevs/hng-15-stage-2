@@ -4,6 +4,7 @@ import { useCallback, useState } from "react";
 import { ScrollView, Text } from "react-native";
 import { Banner, Body, Button, Card, Eyebrow, H1, KV, Loading, Screen, StatusPill } from "../components/ui";
 import { api, type BookingDetail } from "../lib/api";
+import { friendlyError } from "../lib/errors";
 import { formatNaira, formatSlot } from "../lib/format";
 import { colors, fonts } from "../theme";
 
@@ -23,7 +24,7 @@ export default function BookingScreen({ navigation }: { navigation: any }) {
 
   useFocusEffect(
     useCallback(() => {
-      api.booking(reference).then(setD).catch((e) => setErr(e.message));
+      api.booking(reference).then(setD).catch((e) => setErr(friendlyError(e, "We couldn't load this booking. Please try again.")));
     }, [reference]),
   );
 
@@ -36,7 +37,7 @@ export default function BookingScreen({ navigation }: { navigation: any }) {
       if (r.redirectUrl) await WebBrowser.openBrowserAsync(r.redirectUrl);
       setD(await api.booking(reference));
     } catch (e) {
-      setErr(e instanceof Error ? e.message : "Could not start payment.");
+      setErr(friendlyError(e, "We couldn't start the payment. Please try again."));
     } finally {
       setBusy(false);
     }

@@ -4,6 +4,7 @@ import { useCallback, useState } from "react";
 import { ScrollView, Text, View } from "react-native";
 import { Banner, Body, Button, Card, Eyebrow, H1, KV, Loading, Screen, StatusPill } from "../components/ui";
 import { api, type OrderDetail } from "../lib/api";
+import { friendlyError } from "../lib/errors";
 import { formatNaira } from "../lib/format";
 import { colors, fonts } from "../theme";
 
@@ -16,7 +17,7 @@ export default function OrderScreen({ navigation }: { navigation: any }) {
   // Reloads every time the screen is focused, so returning from Paystack re-verifies the payment server-side.
   useFocusEffect(
     useCallback(() => {
-      api.order(reference).then(setD).catch((e) => setErr(e.message));
+      api.order(reference).then(setD).catch((e) => setErr(friendlyError(e, "We couldn't load this order. Please try again.")));
     }, [reference]),
   );
 
@@ -29,7 +30,7 @@ export default function OrderScreen({ navigation }: { navigation: any }) {
       if (r.redirectUrl) await WebBrowser.openBrowserAsync(r.redirectUrl);
       setD(await api.order(reference));
     } catch (e) {
-      setErr(e instanceof Error ? e.message : "Could not start payment.");
+      setErr(friendlyError(e, "We couldn't start the payment. Please try again."));
     } finally {
       setBusy(false);
     }

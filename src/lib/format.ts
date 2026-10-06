@@ -6,6 +6,9 @@ export const formatNaira = (kobo: number) => {
   return "₦" + String(naira).replace(/\B(?=(\d{3})+(?!\d))/g, ",");
 };
 
+/** Listing copy sometimes ends with an internal drafting note; never show it to customers. */
+export const cleanDescription = (d: string) => d.replace(/\s*Placeholder listing:.*$/i, "").trim();
+
 export const formatKm = (km: number) => String(km).replace(/\B(?=(\d{3})+(?!\d))/g, ",") + " km";
 
 /** Catalogue paths like /vehicles/x.jpg live on the website; Supabase Storage URLs are already absolute. */

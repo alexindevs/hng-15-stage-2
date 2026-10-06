@@ -6,7 +6,7 @@ import { ProductCard } from "../components/ProductCard";
 import { Body, Button, Eyebrow, H2, Loading, Screen } from "../components/ui";
 import { useCart } from "../context/CartContext";
 import { api, type Config } from "../lib/api";
-import { assetUrl, formatKm, formatNaira } from "../lib/format";
+import { assetUrl, cleanDescription, formatKm, formatNaira } from "../lib/format";
 import type { Product } from "../lib/products";
 import { colors, fonts, radius } from "../theme";
 
@@ -77,7 +77,7 @@ export default function ProductScreen({ navigation }: { navigation: any }) {
               </View>
             ))}
           </View>
-          <Body>{p.description}</Body>
+          <Body>{cleanDescription(p.description)}</Body>
           <Text style={{ fontFamily: fonts.body, fontSize: 14, color: available ? colors.ok : colors.danger }}>
             {available ? `● ${p.stock === 1 ? "1 available" : `${p.stock} available`}` : "● Sold"}
           </Text>

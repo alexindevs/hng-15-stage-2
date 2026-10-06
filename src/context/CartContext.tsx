@@ -2,6 +2,7 @@ import AsyncStorage from "@react-native-async-storage/async-storage";
 import { AppState } from "react-native";
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { api, type ServerCart } from "../lib/api";
+import { friendlyError } from "../lib/errors";
 import { backoffMs, withRetry } from "../lib/retry";
 import { supabase } from "../lib/supabase";
 import { useAuth } from "./AuthContext";
@@ -109,7 +110,8 @@ export function CartProvider({ children }: { children: ReactNode }) {
       if (userRef.current !== uid) return;
       nextTryAt.current = Date.now() + backoffMs(failures.current++, 1000, 60_000);
       setSync("error");
-      setSyncError(e instanceof Error ? e.message : "Could not sync cart.");
+      console.warn("[cart] first sync failed", e);
+      setSyncError(friendlyError(e, "We couldn't sync your cart."));
     } finally {
       syncing.current = false;
     }
@@ -142,7 +144,8 @@ export function CartProvider({ children }: { children: ReactNode }) {
       try {
         result = await withRetry(op); // transient failures retry with exponential backoff + jitter, keeping order
       } catch (e) {
-        failed = e instanceof Error ? e.message : "Could not sync cart.";
+        console.warn("[cart] sync failed", e);
+        failed = friendlyError(e, "We couldn't sync your cart.");
       }
       inflight.current -= 1;
       if (failed) {

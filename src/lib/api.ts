@@ -1,4 +1,5 @@
 import { SITE_URL } from "../config";
+import { cleanMessage } from "./errors";
 import { ApiError } from "./retry";
 import { supabase } from "./supabase";
 
@@ -106,11 +107,15 @@ async function req<T>(path: string, opts: { method?: string; body?: unknown; aut
       body: opts.body === undefined ? undefined : JSON.stringify(opts.body),
     });
   } catch {
-    throw new ApiError(`Cannot reach the shop server at ${SITE_URL}. Check EXPO_PUBLIC_SITE_URL and your connection.`, 0);
+    throw new ApiError("Network request failed", 0);
   }
   const json = await res.json().catch(() => null);
   // Action endpoints answer { ok:false, error } with a 4xx; return those to the caller instead of throwing.
-  if (json && typeof json === "object" && "ok" in json) return json as T;
+  if (json && typeof json === "object" && "ok" in json) {
+    // Server action messages are written for customers, but never let internal wording through.
+    if (json.ok === false) json.error = cleanMessage(json.error, "We couldn't complete that. Please try again.");
+    return json as T;
+  }
   if (!res.ok) throw new ApiError((json && json.error) || `Request failed (${res.status})`, res.status);
   return json as T;
 }

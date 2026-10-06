@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { KeyboardAvoidingView, Linking, Platform, Pressable, ScrollView, Text, View } from "react-native";
 import { Banner, Body, Button, Card, Eyebrow, Field, H1, KV, Screen } from "../components/ui";
 import { api, type Config } from "../lib/api";
+import { friendlyError } from "../lib/errors";
 import { colors, fonts } from "../theme";
 
 export default function ContactScreen() {
@@ -25,7 +26,7 @@ export default function ContactScreen() {
       setSent(true);
       setF({ name: "", email: "", phone: "", message: "" });
     } catch (e) {
-      setErr(e instanceof Error ? e.message : "Could not send.");
+      setErr(friendlyError(e, "We couldn't send your message. Please try again."));
     } finally {
       setBusy(false);
     }
