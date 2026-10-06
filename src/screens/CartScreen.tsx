@@ -24,7 +24,7 @@ export default function CartScreen({ navigation }: { navigation: any }) {
       <Screen style={s.emptyWrap}>
         <View style={s.empty}>
           <Text style={s.h1}>Your cart is empty</Text>
-          <Text style={s.mute}>Browse the showroom and add a vehicle.</Text>
+          <Text style={s.mute}>Add a vehicle to get started.</Text>
           <Button title="Browse vehicles" onPress={() => navigation.navigate("Shop")} style={{ marginTop: 20 }} />
         </View>
       </Screen>
@@ -41,7 +41,7 @@ export default function CartScreen({ navigation }: { navigation: any }) {
           <View style={{ marginBottom: 4, gap: 6 }}>
             <Text style={s.h1}>Your cart</Text>
             {sync === "error" && (
-              <Text style={[s.mute, { textAlign: "center", color: colors.danger }]}>Your items are saved on this device, but we couldn't update your account cart. We'll keep trying.</Text>
+              <Text style={[s.mute, { textAlign: "center", color: colors.danger }]}>Cart saved on this device. We'll sync it shortly.</Text>
             )}
           </View>
         }

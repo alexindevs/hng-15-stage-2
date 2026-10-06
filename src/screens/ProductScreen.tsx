@@ -97,7 +97,7 @@ export default function ProductScreen({ navigation }: { navigation: any }) {
           </View>
           {cfg && (
             <Text style={s.fine}>
-              Viewings carry a {formatNaira(cfg.inspection_fee_kobo)} inspection fee. {cfg.fee_policy} Prefer to buy now? Add it to your cart and check out.
+              Viewings carry a {formatNaira(cfg.inspection_fee_kobo)} inspection fee. {cfg.fee_policy}
             </Text>
           )}
           {related.length > 0 && (

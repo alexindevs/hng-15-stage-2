@@ -9,7 +9,7 @@ import { formatNaira, formatSlot } from "../lib/format";
 import { colors, fonts } from "../theme";
 
 const NOTE: Record<string, string> = {
-  pending: "We are holding your slot while we confirm it. You will get an email as soon as it is approved.",
+  pending: "Your slot is held while we confirm it. We'll email you once it's approved.",
   confirmed: "Your viewing is confirmed. See you then.",
   declined: "We could not confirm this slot. Please book another time.",
   cancelled: "This booking was cancelled.",

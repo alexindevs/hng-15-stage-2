@@ -30,7 +30,7 @@ export default function GalleryScreen({ navigation }: { navigation: any }) {
           <View style={{ gap: 8, marginBottom: 10 }}>
             <Eyebrow>Gallery</Eyebrow>
             <H1>The lot, up close.</H1>
-            <Body>Tap any photo to enlarge it, then jump to the listing.</Body>
+            <Body>Tap a photo to enlarge it.</Body>
           </View>
         }
         renderItem={({ item, index }) => (

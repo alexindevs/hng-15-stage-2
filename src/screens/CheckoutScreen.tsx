@@ -75,7 +75,7 @@ export default function CheckoutScreen({ navigation }: { navigation: any }) {
 
           <Text style={s.h}>Payment</Text>
           <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 8 }}>
-            {paystack && <Pill label="Card (Paystack)" on={method === "paystack"} onPress={() => setMethod("paystack")} />}
+            {paystack && <Pill label="Card" on={method === "paystack"} onPress={() => setMethod("paystack")} />}
             <Pill label="Bank transfer" on={method === "bank_transfer"} onPress={() => setMethod("bank_transfer")} />
             <Pill label="Pay on delivery" on={method === "pay_on_delivery"} onPress={() => setMethod("pay_on_delivery")} />
           </View>

@@ -56,7 +56,7 @@ export default function BookScreen({ navigation }: { navigation: any }) {
         <ScrollView contentContainerStyle={{ padding: 16, gap: 14 }} keyboardShouldPersistTaps="handled">
           <Eyebrow gold>Viewings by appointment</Eyebrow>
           <H1>Book a viewing</H1>
-          <Body>See the vehicle in person before you decide. Choose a time and we will confirm your slot.</Body>
+          <Body>Pick a time and we'll confirm your slot.</Body>
 
           <Text style={s.h}>1. Vehicle</Text>
           <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 8 }}>

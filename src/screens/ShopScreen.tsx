@@ -73,7 +73,7 @@ export default function ShopScreen({ navigation }: { navigation: any }) {
         ListHeaderComponent={
           <View style={{ gap: 12, marginBottom: 4 }}>
             <View>
-              <Eyebrow gold>Showroom</Eyebrow>
+              <Eyebrow gold>Our stock</Eyebrow>
               <H1 style={{ marginTop: 4 }}>The showroom</H1>
             </View>
             <Input value={q} onChangeText={setQ} placeholder="Search vehicles" autoCorrect={false} />

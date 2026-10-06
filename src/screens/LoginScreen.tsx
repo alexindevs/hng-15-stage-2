@@ -45,7 +45,7 @@ export default function LoginScreen() {
           <View style={s.card}>
             <Eyebrow>Welcome back</Eyebrow>
             <Text style={s.h1}>{mode === "in" ? "Sign in" : "Create account"}</Text>
-            <Text style={s.sub}>Sign in to track your orders and viewings. You can also browse as a guest.</Text>
+            <Text style={s.sub}>Track your orders and viewings, or browse as a guest.</Text>
 
             <Button title="Continue with Google" onPress={() => run("google", signInWithGoogle)} loading={busy === "google"} disabled={busy !== null} style={{ marginTop: 22 }} />
 

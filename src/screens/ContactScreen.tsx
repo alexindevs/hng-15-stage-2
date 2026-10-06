@@ -45,7 +45,7 @@ export default function ContactScreen() {
         <ScrollView contentContainerStyle={{ padding: 16, gap: 14 }} keyboardShouldPersistTaps="handled">
           <Eyebrow>Contact</Eyebrow>
           <H1>Get in touch.</H1>
-          <Body>Questions about a vehicle, a viewing or an order? Send us a message or reach us directly.</Body>
+          <Body>Questions about a vehicle, viewing or order? Message or call us.</Body>
           {cfg && (
             <Card>
               {link("Call", cfg.contact.phone, `tel:${cfg.contact.phone.replace(/\s/g, "")}`)}

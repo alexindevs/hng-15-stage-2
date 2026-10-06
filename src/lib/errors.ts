@@ -1,7 +1,7 @@
 import { ApiError } from "./retry";
 
 export const GENERIC = "Something went wrong. Please try again.";
-const NETWORK = "We can't reach the server. Check your internet connection and try again.";
+const NETWORK = "Can't connect. Check your internet and try again.";
 
 // Anything that mentions internals (config, tokens, JSON shapes, stack-like text) must never reach a user.
 const TECHNICAL = /supabase|credential|token|jwt|env\b|expo|localhost|configured|json|undefined|null|[{}()[\]<>]|\b[45]\d\d\b/i;
@@ -31,7 +31,7 @@ export function friendlyError(e: unknown, fallback = GENERIC): string {
     if (e.status === 0) return NETWORK;
     if (e.status === 401) return "Please sign in again to continue.";
     if (e.status === 429) return "Too many attempts. Please wait a moment and try again.";
-    if (e.status >= 500) return "We're having trouble on our side. Please try again shortly.";
+    if (e.status >= 500) return "Something went wrong on our end. Please try again.";
     if (e.status === 404 || e.status === 409) return cleanMessage(e.message, fallback);
     return fallback;
   }

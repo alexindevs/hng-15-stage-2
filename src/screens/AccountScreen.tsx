@@ -23,7 +23,7 @@ export default function AccountScreen({ navigation }: { navigation: any }) {
           setBookings(b.items);
           setErr("");
         })
-        .catch((e) => setErr(friendlyError(e, "We couldn't load your orders and viewings. Pull back to this tab to try again.")));
+        .catch((e) => setErr(friendlyError(e, "We couldn't load your orders and viewings.")));
     }, [session]),
   );
 
@@ -31,7 +31,7 @@ export default function AccountScreen({ navigation }: { navigation: any }) {
     return (
       <Screen style={{ justifyContent: "center", padding: 24, gap: 12 }}>
         <H1>Your account</H1>
-        <Body>Sign in to see your orders and viewings, and to keep your cart on your account.</Body>
+        <Body>Sign in to see your orders and viewings.</Body>
         <Button title="Sign in" onPress={() => navigation.navigate("Login")} style={{ marginTop: 12 }} />
       </Screen>
     );
