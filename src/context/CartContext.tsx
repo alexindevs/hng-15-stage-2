@@ -2,6 +2,7 @@ import AsyncStorage from "@react-native-async-storage/async-storage";
 import { AppState } from "react-native";
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { api, type ServerCart } from "../lib/api";
+import { supabase } from "../lib/supabase";
 import { useAuth } from "./AuthContext";
 
 // Same line shape and storage key as the website's CartProvider. Guests: device-only (AsyncStorage).
@@ -23,6 +24,8 @@ type Ctx = {
   setQty: (slug: string, qty: number) => void;
   remove: (slug: string) => void;
   clear: () => void;
+  /** Re-read the account cart now (the Cart screen polls this every 5 seconds). No-op for guests. */
+  refresh: () => Promise<void>;
   ready: boolean;
   /** "local" = guest / not synced yet, "synced" = saved to the account, "error" = last sync failed (still saved on device). */
   sync: "local" | "syncing" | "synced" | "error";
@@ -55,6 +58,7 @@ export function CartProvider({ children }: { children: ReactNode }) {
   const synced = useRef(false); // initial merge with the server cart finished for the current user
   const skipPush = useRef(false); // the next lines change came from the server; do not echo it back
   const version = useRef(0); // bumps on every user edit so stale server responses are ignored
+  const pending = useRef(false); // a local edit has not been saved yet; never overwrite it with a server read
   const prevUser = useRef<string | null>(null);
 
   useEffect(() => {
@@ -121,17 +125,20 @@ export function CartProvider({ children }: { children: ReactNode }) {
     }
     if (!synced.current) return;
     const v = ++version.current;
+    pending.current = true;
     setSync("syncing");
     const t = setTimeout(async () => {
       try {
         const result = await api.putCart(linesRef.current.map((l) => ({ slug: l.slug, quantity: l.quantity })));
         if (v !== version.current) return; // user edited again meanwhile
+        pending.current = false;
         skipPush.current = true;
         setLines(fromServer(result));
         setSync("synced");
         setSyncError("");
       } catch (e) {
         if (v !== version.current) return;
+        pending.current = false;
         setSync("error");
         setSyncError(e instanceof Error ? e.message : "Could not sync cart.");
       }
@@ -139,33 +146,51 @@ export function CartProvider({ children }: { children: ReactNode }) {
     return () => clearTimeout(t);
   }, [lines, ready, userId]);
 
-  // Pick up changes made elsewhere (the website) when the app returns to the foreground, and every 20 seconds.
+  // Re-read the account cart. Skipped while a local edit is waiting to be saved so it can never be overwritten.
+  const refresh = useCallback(async () => {
+    if (!synced.current || pending.current) return;
+    const v = version.current;
+    try {
+      const next = fromServer(await api.getCart());
+      if (v !== version.current || pending.current) return;
+      const key = (ls: CartLine[]) => JSON.stringify(ls.map((l) => [l.slug, l.quantity]));
+      if (key(next) !== key(linesRef.current)) {
+        skipPush.current = true;
+        setLines(next);
+      }
+    } catch {
+      // keep the local cart; the next refresh retries
+    }
+  }, []);
+
+  // Live updates: the database broadcasts "cart_changed" on a private channel only this user can join (websocket).
+  // Also refresh when the app returns to the foreground. The Cart screen adds 5-second polling on top.
   useEffect(() => {
     if (!ready || !userId) return;
-    const refresh = async () => {
-      if (!synced.current) return;
-      const v = version.current;
-      try {
-        const next = fromServer(await api.getCart());
-        if (v !== version.current) return; // edited locally while loading
-        const key = (ls: CartLine[]) => JSON.stringify(ls.map((l) => [l.slug, l.quantity]));
-        if (key(next) !== key(linesRef.current)) {
-          skipPush.current = true;
-          setLines(next);
-        }
-      } catch {
-        // keep the local cart; the next edit or refresh retries
-      }
-    };
-    const timer = setInterval(refresh, 20_000);
-    const sub = AppState.addEventListener("change", (s) => {
-      if (s === "active") refresh();
+    let channel: ReturnType<typeof supabase.channel> | null = null;
+    let debounce: ReturnType<typeof setTimeout> | undefined;
+    let cancelled = false;
+    (async () => {
+      await supabase.realtime.setAuth();
+      if (cancelled) return;
+      channel = supabase
+        .channel(`cart:${userId}`, { config: { private: true } })
+        .on("broadcast", { event: "cart_changed" }, () => {
+          clearTimeout(debounce);
+          debounce = setTimeout(refresh, 150);
+        })
+        .subscribe();
+    })();
+    const sub = AppState.addEventListener("change", (st) => {
+      if (st === "active") refresh();
     });
     return () => {
-      clearInterval(timer);
+      cancelled = true;
+      clearTimeout(debounce);
+      if (channel) supabase.removeChannel(channel);
       sub.remove();
     };
-  }, [ready, userId]);
+  }, [ready, userId, refresh]);
 
   const add = useCallback<Ctx["add"]>((l, qty = 1) => {
     setLines((cur) => {
@@ -188,6 +213,7 @@ export function CartProvider({ children }: { children: ReactNode }) {
       ready,
       sync,
       syncError,
+      refresh,
       count: lines.reduce((n, l) => n + l.quantity, 0),
       totalKobo: lines.reduce((n, l) => n + l.quantity * l.price_kobo, 0),
       add,
@@ -195,7 +221,7 @@ export function CartProvider({ children }: { children: ReactNode }) {
       remove,
       clear,
     }),
-    [lines, ready, sync, syncError, add, setQty, remove, clear],
+    [lines, ready, sync, syncError, refresh, add, setQty, remove, clear],
   );
   return <CartCtx.Provider value={value}>{children}</CartCtx.Provider>;
 }

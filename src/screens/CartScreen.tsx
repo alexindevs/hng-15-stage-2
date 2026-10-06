@@ -1,4 +1,6 @@
+import { useFocusEffect } from "@react-navigation/native";
 import { Image } from "expo-image";
+import { useCallback } from "react";
 import { FlatList, Pressable, StyleSheet, Text, View } from "react-native";
 import { Button, Eyebrow, Screen } from "../components/ui";
 import { useCart, type CartLine } from "../context/CartContext";
@@ -6,7 +8,15 @@ import { assetUrl, formatNaira } from "../lib/format";
 import { colors, fonts, radius } from "../theme";
 
 export default function CartScreen({ navigation }: { navigation: any }) {
-  const { lines, totalKobo, ready, sync, syncError } = useCart();
+  const { lines, totalKobo, ready, sync, syncError, refresh } = useCart();
+  // Safety net on top of the websocket: re-read the account cart every 5 seconds while this screen is focused.
+  useFocusEffect(
+    useCallback(() => {
+      refresh();
+      const t = setInterval(refresh, 5000);
+      return () => clearInterval(t);
+    }, [refresh]),
+  );
   if (!ready) return <Screen />;
 
   if (!lines.length) {
