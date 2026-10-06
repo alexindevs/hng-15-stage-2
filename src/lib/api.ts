@@ -122,6 +122,12 @@ export const api = {
     req<{ product: Product; media: { kind: "image" | "video"; url: string; plate?: boolean }[]; related: Product[] }>(`/products/${encodeURIComponent(slug)}`),
   getCart: () => req<ServerCart>("/cart", { auth: "required" }),
   putCart: (items: { slug: string; quantity: number }[]) => req<ServerCart>("/cart", { method: "PUT", body: { items }, auth: "required" }),
+  // Per-item operations: edits from different devices combine instead of overwriting each other.
+  addToCart: (slug: string, quantity: number) => req<ServerCart>("/cart", { method: "POST", body: { slug, quantity }, auth: "required" }),
+  setCartQty: (slug: string, quantity: number) =>
+    req<ServerCart>(`/cart/${encodeURIComponent(slug)}`, { method: "PATCH", body: { quantity }, auth: "required" }),
+  removeFromCart: (slug: string) => req<ServerCart>(`/cart/${encodeURIComponent(slug)}`, { method: "DELETE", auth: "required" }),
+  clearCart: () => req<ServerCart>("/cart", { method: "DELETE", auth: "required" }),
   checkout: (body: unknown) => req<ActionResult>("/checkout", { method: "POST", body, auth: "optional" }),
   orders: () => req<{ items: OrderRow[] }>("/orders", { auth: "required" }),
   order: (ref: string) => req<OrderDetail>(`/orders/${encodeURIComponent(ref)}`),

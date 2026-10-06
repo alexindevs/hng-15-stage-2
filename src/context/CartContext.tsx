@@ -6,7 +6,10 @@ import { supabase } from "../lib/supabase";
 import { useAuth } from "./AuthContext";
 
 // Same line shape and storage key as the website's CartProvider. Guests: device-only (AsyncStorage).
-// Signed in: the cart is also stored in Supabase through the Next.js API (/api/cart), so it follows the account.
+// Signed in: the cart also lives in Supabase through the Next.js API (/api/cart):
+//  - on sign-in the device cart is merged into the account cart (higher quantity wins);
+//  - every edit is sent as a per-item operation, in order, so edits from different devices combine;
+//  - a websocket broadcast reports changes made elsewhere; the Cart screen also polls every 5 seconds.
 export type CartLine = {
   slug: string;
   name: string;
@@ -44,6 +47,8 @@ const fromServer = (c: ServerCart): CartLine[] =>
     max: i.stock,
     image: i.image_url,
   }));
+const sameCart = (a: CartLine[], b: CartLine[]) =>
+  JSON.stringify(a.map((l) => [l.slug, l.quantity])) === JSON.stringify(b.map((l) => [l.slug, l.quantity]));
 
 export function CartProvider({ children }: { children: ReactNode }) {
   const { session } = useAuth();
@@ -55,10 +60,9 @@ export function CartProvider({ children }: { children: ReactNode }) {
 
   const linesRef = useRef(lines);
   linesRef.current = lines;
-  const synced = useRef(false); // initial merge with the server cart finished for the current user
-  const skipPush = useRef(false); // the next lines change came from the server; do not echo it back
-  const version = useRef(0); // bumps on every user edit so stale server responses are ignored
-  const pending = useRef(false); // a local edit has not been saved yet; never overwrite it with a server read
+  const synced = useRef(false); // initial merge with the account cart finished for the current user
+  const inflight = useRef(0); // queued/running operations; while > 0 server reads are ignored
+  const chain = useRef<Promise<unknown>>(Promise.resolve());
   const prevUser = useRef<string | null>(null);
 
   useEffect(() => {
@@ -74,94 +78,93 @@ export function CartProvider({ children }: { children: ReactNode }) {
     AsyncStorage.setItem(KEY, JSON.stringify(lines)).catch(() => {});
   }, [lines, ready]);
 
-  // Sign-in: merge the device cart into the account cart (higher quantity wins), save it, adopt the server's version.
-  // Sign-out: empty the device cart so the next person on this phone does not inherit it.
+  const userRef = useRef(userId);
+  userRef.current = userId;
+  const syncing = useRef(false);
+
+  // Merge the device cart into the account cart (higher quantity wins), save it, adopt the server's version.
+  // Retried by refresh() until it succeeds (e.g. after a network or auth error).
+  const initialSync = useCallback(async () => {
+    const uid = userRef.current;
+    if (!uid || syncing.current) return;
+    syncing.current = true;
+    setSync("syncing");
+    try {
+      const server = await api.getCart();
+      const merged = new Map<string, number>();
+      for (const i of server.items) merged.set(i.slug, i.quantity);
+      for (const l of linesRef.current) merged.set(l.slug, Math.max(merged.get(l.slug) ?? 0, l.quantity));
+      const result = await api.putCart([...merged].map(([slug, quantity]) => ({ slug, quantity })));
+      if (userRef.current !== uid) return; // signed out / switched account meanwhile
+      setLines(fromServer(result));
+      synced.current = true;
+      setSync("synced");
+      setSyncError("");
+    } catch (e) {
+      if (userRef.current !== uid) return;
+      setSync("error");
+      setSyncError(e instanceof Error ? e.message : "Could not sync cart.");
+    } finally {
+      syncing.current = false;
+    }
+  }, []);
+
+  // Sign-in: sync. Sign-out: empty the device cart so the next person on this phone does not inherit it.
   useEffect(() => {
     if (!ready) return;
+    synced.current = false;
     if (!userId) {
-      synced.current = false;
       setSync("local");
-      if (prevUser.current) {
-        skipPush.current = true;
-        setLines([]);
-      }
+      if (prevUser.current) setLines([]);
       prevUser.current = null;
       return;
     }
     prevUser.current = userId;
-    synced.current = false;
-    let cancelled = false;
-    (async () => {
-      setSync("syncing");
+    initialSync();
+  }, [ready, userId, initialSync]);
+
+  /** Sends one operation after all earlier ones; when the queue drains, adopts the server's answer. */
+  const enqueue = useCallback((op: () => Promise<ServerCart>) => {
+    if (!synced.current) return;
+    inflight.current += 1;
+    setSync("syncing");
+    chain.current = chain.current.then(async () => {
+      let result: ServerCart | null = null;
+      let failed: string | null = null;
       try {
-        const server = await api.getCart();
-        const merged = new Map<string, number>();
-        for (const i of server.items) merged.set(i.slug, i.quantity);
-        for (const l of linesRef.current) merged.set(l.slug, Math.max(merged.get(l.slug) ?? 0, l.quantity));
-        const result = await api.putCart([...merged].map(([slug, quantity]) => ({ slug, quantity })));
-        if (cancelled) return;
-        skipPush.current = true;
+        result = await op();
+      } catch (e) {
+        failed = e instanceof Error ? e.message : "Could not sync cart.";
+      }
+      inflight.current -= 1;
+      if (failed) {
+        setSync("error");
+        setSyncError(failed);
+      } else if (inflight.current === 0 && result) {
         setLines(fromServer(result));
-        synced.current = true;
         setSync("synced");
         setSyncError("");
-      } catch (e) {
-        if (cancelled) return;
-        setSync("error");
-        setSyncError(e instanceof Error ? e.message : "Could not sync cart.");
       }
-    })();
-    return () => {
-      cancelled = true;
-    };
-  }, [ready, userId]);
+    });
+  }, []);
 
-  // Push every user edit to the server (debounced); the server's answer (current prices, stock caps) replaces local lines.
-  useEffect(() => {
-    if (!ready || !userId) return;
-    if (skipPush.current) {
-      skipPush.current = false;
+  // Re-read the account cart. Skipped while local edits are still being saved so they cannot be overwritten.
+  const refresh = useCallback(async () => {
+    if (!synced.current) {
+      initialSync(); // earlier sync failed or has not run yet: try again
       return;
     }
-    if (!synced.current) return;
-    const v = ++version.current;
-    pending.current = true;
-    setSync("syncing");
-    const t = setTimeout(async () => {
-      try {
-        const result = await api.putCart(linesRef.current.map((l) => ({ slug: l.slug, quantity: l.quantity })));
-        if (v !== version.current) return; // user edited again meanwhile
-        pending.current = false;
-        skipPush.current = true;
-        setLines(fromServer(result));
-        setSync("synced");
-        setSyncError("");
-      } catch (e) {
-        if (v !== version.current) return;
-        pending.current = false;
-        setSync("error");
-        setSyncError(e instanceof Error ? e.message : "Could not sync cart.");
-      }
-    }, 300);
-    return () => clearTimeout(t);
-  }, [lines, ready, userId]);
-
-  // Re-read the account cart. Skipped while a local edit is waiting to be saved so it can never be overwritten.
-  const refresh = useCallback(async () => {
-    if (!synced.current || pending.current) return;
-    const v = version.current;
+    if (inflight.current > 0) return;
     try {
       const next = fromServer(await api.getCart());
-      if (v !== version.current || pending.current) return;
-      const key = (ls: CartLine[]) => JSON.stringify(ls.map((l) => [l.slug, l.quantity]));
-      if (key(next) !== key(linesRef.current)) {
-        skipPush.current = true;
-        setLines(next);
-      }
+      if (inflight.current > 0) return;
+      if (!sameCart(next, linesRef.current)) setLines(next);
+      setSync("synced");
+      setSyncError("");
     } catch {
       // keep the local cart; the next refresh retries
     }
-  }, []);
+  }, [initialSync]);
 
   // Live updates: the database broadcasts "cart_changed" on a private channel only this user can join (websocket).
   // Also refresh when the app returns to the foreground. The Cart screen adds 5-second polling on top.
@@ -192,20 +195,37 @@ export function CartProvider({ children }: { children: ReactNode }) {
     };
   }, [ready, userId, refresh]);
 
-  const add = useCallback<Ctx["add"]>((l, qty = 1) => {
-    setLines((cur) => {
-      const found = cur.find((x) => x.slug === l.slug);
-      if (found) return cur.map((x) => (x.slug === l.slug ? { ...x, quantity: Math.min(x.quantity + qty, l.max) } : x));
-      return [...cur, { ...l, quantity: Math.min(qty, l.max) }];
-    });
-  }, []);
-  const setQty = useCallback((slug: string, qty: number) => {
-    setLines((cur) =>
-      cur.flatMap((x) => (x.slug !== slug ? [x] : qty <= 0 ? [] : [{ ...x, quantity: Math.min(qty, x.max) }])),
-    );
-  }, []);
-  const remove = useCallback((slug: string) => setLines((c) => c.filter((x) => x.slug !== slug)), []);
-  const clear = useCallback(() => setLines([]), []);
+  const add = useCallback<Ctx["add"]>(
+    (l, qty = 1) => {
+      setLines((cur) => {
+        const found = cur.find((x) => x.slug === l.slug);
+        if (found) return cur.map((x) => (x.slug === l.slug ? { ...x, quantity: Math.min(x.quantity + qty, l.max) } : x));
+        return [...cur, { ...l, quantity: Math.min(qty, l.max) }];
+      });
+      enqueue(() => api.addToCart(l.slug, qty));
+    },
+    [enqueue],
+  );
+  const setQty = useCallback(
+    (slug: string, qty: number) => {
+      setLines((cur) =>
+        cur.flatMap((x) => (x.slug !== slug ? [x] : qty <= 0 ? [] : [{ ...x, quantity: Math.min(qty, x.max) }])),
+      );
+      enqueue(() => api.setCartQty(slug, Math.max(0, qty)));
+    },
+    [enqueue],
+  );
+  const remove = useCallback(
+    (slug: string) => {
+      setLines((c) => c.filter((x) => x.slug !== slug));
+      enqueue(() => api.removeFromCart(slug));
+    },
+    [enqueue],
+  );
+  const clear = useCallback(() => {
+    setLines([]);
+    enqueue(() => api.clearCart());
+  }, [enqueue]);
 
   const value = useMemo<Ctx>(
     () => ({
