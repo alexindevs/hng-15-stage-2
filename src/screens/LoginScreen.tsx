@@ -1,3 +1,4 @@
+import * as Linking from "expo-linking";
 import { useState } from "react";
 import { KeyboardAvoidingView, Platform, ScrollView, StyleSheet, Text, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
@@ -66,6 +67,7 @@ export default function LoginScreen() {
             </Text>
           </View>
           <Text style={s.guest} onPress={continueAsGuest}>Continue as guest</Text>
+          {__DEV__ && <Text selectable style={s.debug}>Redirect URL (add to Supabase): {Linking.createURL("auth/callback")}</Text>}
         </ScrollView>
       </KeyboardAvoidingView>
     </SafeAreaView>
@@ -84,5 +86,6 @@ const s = StyleSheet.create({
   err: { fontFamily: fonts.body, color: colors.danger, marginTop: 14, fontSize: 14 },
   notice: { fontFamily: fonts.body, color: colors.ok, marginTop: 14, fontSize: 14 },
   switch: { fontFamily: fonts.body, color: colors.gold, textAlign: "center", marginTop: 18, fontSize: 14 },
+  debug: { fontFamily: fonts.body, color: colors.mute, fontSize: 11, textAlign: "center" },
   guest: { fontFamily: fonts.body, color: colors.mute, textAlign: "center", fontSize: 14, padding: 8 },
 });
